@@ -82,7 +82,7 @@ JOIN Portfolio_Project..CovidVaccinations$ vac
 	ON dea.location = vac.location
 	AND dea.date = vac.date
 --Order BY 2,3
-)
+) 
 Select *,(RollingPeopleVaccination/Population)*100 From PopVsVac
 
 
@@ -122,3 +122,157 @@ JOIN Portfolio_Project..CovidVaccinations$ vac
 	--Order By 2,3
 
 Select * From PercentPopulationVaccinated
+
+
+
+-------------------------------------------------------------------------------------------------------
+/*
+Cleaning Data in SQL Queries
+*/
+--------------------------------------------------------------------------------------------------------
+
+Select * From Portfolio_Project..Sheet1$
+
+----------------------------
+
+-- Standardize Date Format
+-- Adding New Column
+
+Alter Table Portfolio_Project..sheet1$
+ADD SaleDateConverted Date
+
+UPDATE Portfolio_Project..Sheet1$
+SET SaleDateConverted = CONVERT(DATE, saledate)
+
+Select SaleDateConverted From Portfolio_Project..Sheet1$
+
+-- Populate Property Address data
+-- Selecting Unique value
+-- if is it null than just repalce value from b.ProperyAddress to a.PropertyAddress
+
+Select *  
+From Portfolio_Project..Sheet1$
+Where PropertyAddress is null
+order by ParcelID
+
+Select a.ParcelID, a.PropertyAddress, b.ParcelID, b.PropertyAddress, ISNULL(a.PropertyAddress,b.PropertyAddress)
+From Portfolio_Project..Sheet1$ a
+Join Portfolio_Project..Sheet1$ b
+	On a.ParcelID = b.ParcelID
+	AND a.[UniqueID ] <> b.[UniqueID ]
+
+Where a.PropertyAddress is null
+
+Update a
+SET PropertyAddress = ISNULL(a.PropertyAddress,b.PropertyAddress)
+From Portfolio_Project..Sheet1$ a
+Join Portfolio_Project..Sheet1$ b
+	On a.ParcelID = b.ParcelID
+	AND a.[UniqueID ] <> b.[UniqueID ]
+Where a.PropertyAddress is null
+
+
+---------------------------------------------------------------------------------------------------
+-- Breaking out Address into Columns (Address, City, States)
+/*
+This part of the query is using the SUBSTRING function to extract a portion of the PropertyAddress column. 
+It starts from the beginning of the PropertyAddress and goes up to the character just before the first comma (,).
+The result of this substring extraction is given the alias Address.
+Select PropertyAddress From Portfolio_Project..Sheet1$
+*/
+Select 
+-- Extract all data from first Index (1) untill ',' Encounter 
+SUBSTRING(PropertyAddress,1,Charindex(',',PropertyAddress)-1) as Address,
+
+--Extract the characters right after the first comma in the PropertyAddress and extend the extraction to the end of the address.
+SUBSTRING(PropertyAddress,Charindex(',',PropertyAddress)+1, LEN(PropertyAddress)) as Address
+From Portfolio_Project..Sheet1$
+
+Alter Table Portfolio_Project..sheet1$
+ADD PropertySplitAddress NVarchar(255)
+
+UPDATE Portfolio_Project..Sheet1$
+SET PropertySplitAddress = SUBSTRING(PropertyAddress,1,Charindex(',',PropertyAddress)-1)
+
+Alter Table Portfolio_Project..sheet1$
+ADD PropertySplitCity  NVarchar(255)
+
+UPDATE Portfolio_Project..Sheet1$
+SET PropertySplitCity = SUBSTRING(PropertyAddress,Charindex(',',PropertyAddress)+1, LEN(PropertyAddress))
+
+
+
+-- We use the REPLACE function to replace commas with periods in the OwnerAddress column. 
+--The result of this operation for the example row would be '123 Main St. City. Country'.
+
+-- We then use the PARSENAME function to parse the modified address string.
+-- In this context, PARSENAME treats the periods as delimiters and extracts parts of the string.
+-- The second argument (1) indicates that we want to extract the first part of the parsed string, which corresponds to '123 Main St'.
+
+
+Select
+PARSENAME(REPLACE(OwnerAddress, ',', '.') , 3)
+,PARSENAME(REPLACE(OwnerAddress, ',', '.') , 2)
+,PARSENAME(REPLACE(OwnerAddress, ',', '.') , 1)
+From  Portfolio_Project..Sheet1$
+
+
+ALTER TABLE  Portfolio_Project..Sheet1$
+Add OwnerSplitAddress Nvarchar(255);
+
+Update  Portfolio_Project..Sheet1$
+SET OwnerSplitAddress = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 3)
+
+
+ALTER TABLE  Portfolio_Project..Sheet1$
+Add OwnerSplitCity Nvarchar(255);
+
+Update  Portfolio_Project..Sheet1$
+SET OwnerSplitCity = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 2)
+
+
+
+ALTER TABLE  Portfolio_Project..Sheet1$
+Add OwnerSplitState Nvarchar(255);
+
+Update  Portfolio_Project..Sheet1$
+SET OwnerSplitState = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 1)
+
+Select *
+From  Portfolio_Project..Sheet1$
+
+
+
+-- Change Y and N to Yes and No in "solid as Vacant" field
+
+Select Distinct(SoldAsVacant), count(SoldAsVacant) from 
+Portfolio_Project..Sheet1$
+Group BY SoldAsVacant
+Order By 2
+
+Select SoldAsVacant,
+Case When SoldAsVacant = 'Y' Then 'YES'
+	When SoldAsVacant = 'N' Then 'No'
+	Else SoldAsVacant
+	END
+From Portfolio_Project..Sheet1$
+
+Update Portfolio_Project..Sheet1$
+Set SoldAsVacant = Case When SoldAsVacant = 'Y' Then 'YES'
+	When SoldAsVacant = 'N' Then 'No'
+	Else SoldAsVacant
+	END
+From Portfolio_Project..Sheet1$
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------
+
+-- Delete Unused Columns
+
+Select * 
+From Portfolio_Project..Sheet1$
+
+Alter Table Portfolio_Project..Sheet1$
+Drop Column OwnerAddress, TaxDistrict, PropertyAddress
