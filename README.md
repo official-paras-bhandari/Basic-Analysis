@@ -1,4 +1,3 @@
-# Portfolio_Projects
-# Beginner to Master 
-# Code revision
+# Sql Project
+# Excel Project
 
